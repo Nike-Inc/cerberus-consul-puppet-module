@@ -1,0 +1,13 @@
+{
+  "name": "cerberus_consul",
+  "version": "1.0.0",
+  "author": "Justin Field (CPE - Nike, Inc.)",
+  "summary": "Puppet module to be used to install and configure consul as a client or server for Cerberus",
+  "license": "Apache-2.0",
+  "source": "",
+  "project_page": "",
+  "issues_url": "",
+  "dependencies": [
+    {"name":"puppetlabs-stdlib","version_requirement":">= 3.0.0"}
+  ]
+}

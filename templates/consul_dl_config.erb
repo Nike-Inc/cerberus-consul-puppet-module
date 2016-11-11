@@ -1,0 +1,32 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+
+####################################################################################
+#
+# A simple shell script that utilizes the AWS CLI to fetch encrypted configuration 
+# from S3 and decrypts it using KMS and places it in the appropriate folder
+#
+####################################################################################
+
+if [ -z "${CONFIG_S3_BUCKET}" ]; then
+    echo "ERROR: CONFIG_S3_BUCKET variable is empty and required!"
+    exit 1
+fi
+
+S3_BUCKET=${CONFIG_S3_BUCKET}
+PATH_PREFIX="data/consul"
+CONFIG_DIR="<%= @config_dir %>"
+
+FILES=( "${PATH_PREFIX}/vault-acl.json:${CONFIG_DIR}/vault-acl.json"
+        "${PATH_PREFIX}/<%= @config_file_name %>:${CONFIG_DIR}/configuration.json"
+        "${PATH_PREFIX}/consul-ca.pem:${CONFIG_DIR}/ca.pem"
+        "${PATH_PREFIX}/consul-cert.pem:${CONFIG_DIR}/cert.pem"
+        "${PATH_PREFIX}/consul-key.pem:${CONFIG_DIR}/key.pem" )
+
+for fileset in "${FILES[@]}" ; do
+    S3_PATH=${fileset%%:*}
+    DEST_PATH=${fileset#*:}
+    
+    s3_get_enc_object.py --bucket ${S3_BUCKET} --key ${S3_PATH} --file ${DEST_PATH}
+done

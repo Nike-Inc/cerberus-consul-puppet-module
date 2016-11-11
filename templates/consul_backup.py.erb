@@ -1,0 +1,111 @@
+#! /usr/bin/env python
+import argparse
+import datetime
+import logging
+import os
+import socket
+import subprocess
+import boto3
+import tarfile
+import tempfile
+import time
+
+S3_BASE_PATH = 'consul/backups'
+CONSUL_DATA_DIR = '/var/consul/data'
+ARCHIVE_KEY_PATTERN = "{0}/{1}/{2}/consul_backup_{3}.tar.gz"
+
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', filename='<%= @backup_log_file %>', level=logging.INFO)
+
+
+def source_ec2_user_data():
+    source_cmd = ['bash', '-c', 'source /etc/default/ec2-user-data && env']
+
+    proc = subprocess.Popen(source_cmd, stdout=subprocess.PIPE)
+
+    for line in proc.stdout:
+        (key, _, value) = line.partition("=")
+        os.environ[key] = value.rstrip('\n')
+
+    proc.communicate()
+
+
+def create_tar(dir_to_backup):
+    temp_file = tempfile.NamedTemporaryFile()
+    logging.debug('Archive file for backup: %s', temp_file.name)
+    tar_file = tarfile.open(temp_file.name, 'w:gz')
+    tar_file.add(dir_to_backup)
+    tar_file.close()
+    logging.debug('Backup files added to archive.')
+    return temp_file
+
+
+def upload_tar_to_s3(bucket, file):
+    client = boto3.client('s3')
+    client.upload_file(file.name, bucket, key)
+    logging.info('Backup uploaded: %s', key)
+
+
+def enforce_limits(bucket, hostname, limit, backup_type):
+    client = boto3.client('s3')
+    # Amazon returns keys in alphabetical order
+    keys = get_all_keys(client, bucket, [], backup_type, hostname)
+    if len(keys) <= limit:
+        return
+    else:
+        for x in range(len(keys) - limit):
+            logging.info('Deleting old backup: %s', keys[x])
+            client.delete_object(
+                Bucket=bucket,
+                Key=keys[x]
+            )
+
+
+def get_all_keys(client, bucket, keys, backup_type, hostname, marker=None):
+    if marker is None:
+        response = client.list_objects(
+                Bucket=bucket,
+                Prefix="{0}/{1}/{2}".format(S3_BASE_PATH, backup_type, hostname)
+        )
+    else:
+        response = client.list_objects(
+                Bucket=bucket,
+                Prefix="{0}/{1}/{2}".format(S3_BASE_PATH, backup_type, hostname),
+                Marker=marker
+        )
+
+    for entry in response['Contents']:
+        keys.append(entry['Key'])
+
+    if response['IsTruncated']:
+        if 'NextMarker' in response:
+            return get_all_keys(client, keys, response['NextMarker'])
+        else:
+            return get_all_keys(client, keys, response['Contents'][-1]['Key'])
+    else:
+        return keys
+
+###
+#
+# Program entry point
+#
+###
+
+
+source_ec2_user_data()
+
+bucket = os.environ['CONFIG_S3_BUCKET']
+hostname = socket.gethostname()
+logging.info('bucket: %s', bucket)
+parser = argparse.ArgumentParser(description='Backup console data.')
+parser.add_argument('--type', type=str, help='hourly | daily | weekly')
+parser.add_argument('--limit', type=int, help='The limit of archives to keep for the type.')
+args = parser.parse_args()
+backup_type_opt = args.type
+limit_opt = args.limit
+time_stamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y%m%d%H%M%S')
+key = ARCHIVE_KEY_PATTERN.format(S3_BASE_PATH, backup_type_opt, hostname, time_stamp)
+
+archive_file = create_tar(CONSUL_DATA_DIR)
+upload_tar_to_s3(bucket, archive_file)
+archive_file.close()
+enforce_limits(bucket, hostname, limit_opt, backup_type_opt)

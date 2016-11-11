@@ -1,0 +1,19 @@
+<%= @log_file %> {
+    rotate 3
+    size 100M
+    copytruncate
+    notifempty
+    compress
+    missingok
+    nocreate
+}
+
+<%= @backup_log_file %> {
+    rotate 3
+    size 100M
+    copytruncate
+    notifempty
+    compress
+    missingok
+    nocreate
+}

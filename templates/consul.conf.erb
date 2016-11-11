@@ -1,0 +1,78 @@
+description "Consul Agent"
+
+start on runlevel [2345]
+stop on runlevel [!2345]
+
+setuid <%= @consul_user %>
+setgid <%= @consul_group %>
+
+respawn
+# This is to avoid Upstart re-spawning the process upon `consul leave`
+normal exit 0 INT
+# stop consul will not mark node as failed but left
+kill signal INT
+
+pre-start script
+    . /etc/default/ec2-user-data
+    
+    <%= @bin_dir %>/consul_dl_config
+end script
+
+script
+    . /etc/default/ec2-user-data
+
+    URL="http://169.254.169.254/latest/"
+    ID=$(curl -s $URL/meta-data/instance-id)
+    STACK_ID=$(aws --region ${EC2_REGION} ec2 describe-tags --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
+    SERVERS=$(aws --region ${EC2_REGION} ec2 describe-instances --filters "Name=tag:Name,Values=${CLOUD_ENVIRONMENT}" "Name=tag:aws:cloudformation:logical-id,Values=ConsulAutoScalingGroup" | jq -r '.Reservations[].Instances[].PrivateIpAddress')
+    BOOTSTRAP_EXPECT=$(cat <%= @config_dir %>/configuration.json | jq -r '.bootstrap_expect')
+
+    # if all the instances aren't up yet we die and get restarted later
+    if [ $(echo "$SERVERS" | wc -l) -lt $BOOTSTRAP_EXPECT ]
+    then
+      echo "Not enough peers, expected $BOOTSTRAP_EXPECT nodes but got $SERVERS" >> <%= @log_file %>
+      exit 1
+    fi
+
+    # Make sure to use all our CPUs, because Consul can block a scheduler thread
+    export GOMAXPROCS=`nproc`
+    
+    # Validate we know what DC to join
+    if [ -z "${CONSUL_DC}" ]; then
+        echo "ERROR: CONSUL_DC environment variable is empty, aborting startup of Consul." >> <%= @log_file %>
+        exit 1
+    fi
+
+    exec <%= @bin_dir %>/consul agent \
+        -dc ${CONSUL_DC} \
+        -config-file=<%= @config_dir %>/configuration.json \
+        $(echo "$SERVERS" | sed 's/^/ -retry-join /' | tr -d '\n') \
+        >><%= @log_file %> 2>&1
+end script
+
+post-start script
+    IS_SERVER=$(cat <%= @config_dir %>/configuration.json | jq -r '.server')
+    if [ "${IS_SERVER}" = "true" ]
+    then
+        . /etc/default/ec2-user-data
+
+        URL="http://169.254.169.254/latest/"
+        ID=$(curl -s $URL/meta-data/instance-id)
+        STACK_ID=$(aws ec2 describe-tags --region ${EC2_REGION} --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
+
+        # Get the ip address of self
+        IP=$(ip addr show dev eth0|awk '/inet /{print $2}'|cut -d/ -f1)
+
+        HTTP_PORT=$(cat <%= @config_dir %>/configuration.json | jq -r '.ports.http')
+
+        # wait for self ip to show up in peers list
+        while ! curl -s http://localhost:${HTTP_PORT}/v1/status/peers | grep -q $IP:
+        do
+            echo Waiting for consul
+            sleep 1
+        done
+
+        # Single to AWS that we are up
+        aws --region ${EC2_REGION} cloudformation signal-resource --logical-resource-id ConsulAutoScalingGroup --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --status SUCCESS --unique-id ${ID}
+    fi
+end script

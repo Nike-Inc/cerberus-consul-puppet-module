@@ -1,0 +1,54 @@
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
+
+####################################################################################
+#
+# Validates that consul cluster is healthy and that the vault ACL exists. 
+# If the vault ACL isn't present, it writes it to the cluster.
+#
+####################################################################################
+
+###
+# NOTE: Order is important, we don't want to open any consul config files 
+#       until consul has started since it downloads those files!
+###
+
+CONFIG_DIR="<%= @config_dir %>"
+VAULT_ACL_FILE="${CONFIG_DIR}/vault-acl.json"
+CONSUL_CONFIG_FILE="${CONFIG_DIR}/configuration.json"
+
+# Wait for config files to exist
+while [[ ! -f $VAULT_ACL_FILE && ! -f $CONSUL_CONFIG_FILE ]]; do
+    echo "Files not available yet, sleeping for 30 seconds."
+    sleep 30s
+done
+
+# Extract tokens from consul configuration files
+VAULT_ACL_TOKEN=$(jq -r '.ID' ${VAULT_ACL_FILE})
+ACL_MASTER_TOKEN=$(jq -r '.acl_master_token' ${CONSUL_CONFIG_FILE})
+
+# Wait until the consul cluster has elected a leader
+LEADER_ADDR=""
+while [ -z $LEADER_ADDR ]; do
+    echo "Waiting 30 seconds for the consul cluster to elect a leader."
+    LEADER_ADDR=$(curl -s "http://localhost:8580/v1/status/leader?token=${ACL_MASTER_TOKEN}" | jq -r '.')
+    sleep 30s
+done
+
+# Attempt to get the current Vault ACL token
+CURR_VAULT_ACL_TOKEN=$(curl -s "http://localhost:8580/v1/acl/info/${VAULT_ACL_TOKEN}?token=${ACL_MASTER_TOKEN}" | jq -r '.[0].ID')
+
+# If not present, write the Vault ACL
+if [ $VAULT_ACL_TOKEN != $CURR_VAULT_ACL_TOKEN ]; then
+    RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" --data "@${VAULT_ACL_FILE}" -X PUT "http://localhost:8580/v1/acl/update?token=${ACL_MASTER_TOKEN}")
+    
+    if [ $RESPONSE_CODE == "200" ]; then
+        echo "Vault ACL Written"
+    else
+        echo "ERROR: Failed to write Vault ACL."
+        exit 1
+    fi
+else
+    echo "Vault ACL token already exists."
+fi

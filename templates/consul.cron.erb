@@ -1,0 +1,6 @@
+*/30  *  *  *  *    root    /usr/sbin/logrotate <%= @logrotate_consul_conf_file %>
+<% if @is_server %>
+0  *  *  *  *    <%= @consul_user %>    /usr/local/bin/consul_backup.py --type hourly --limit 24 >><%= @backup_log_file %> 2>&1
+0  3  *  *  *    <%= @consul_user %>    /usr/local/bin/consul_backup.py --type daily --limit 7 >><%= @backup_log_file %> 2>&1
+0  5  *  *  0    <%= @consul_user %>    /usr/local/bin/consul_backup.py --type weekly --limit 4 >><%= @backup_log_file %> 2>&1
+<% end %>

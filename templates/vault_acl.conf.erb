@@ -1,0 +1,17 @@
+description "Writes Vault's ACL to the Consul cluster once its available"
+
+start on runlevel [2345]
+stop on runlevel [!2345]
+
+setuid <%= @consul_user %>
+setgid <%= @consul_group %>
+
+respawn
+# This is to avoid Upstart re-spawning the process upon `vault_acl leave`
+normal exit 0 INT
+# stop vault_acl will not mark node as failed but left
+kill signal INT
+
+script
+  exec <%= @bin_dir %>/sync_vault_acl
+end script
