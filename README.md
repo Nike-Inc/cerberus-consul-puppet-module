@@ -12,7 +12,7 @@
 
 ## Overview
 
-This module installs Consul for the Cerberus project along with splunk configuration and an upstart script.
+This module installs Consul for the Cerberus project along and an upstart script.
 
 ## Module Description
 
@@ -33,7 +33,6 @@ This module should be run on an instance that will either host a consul client o
 ### Setup Requirements 
 
 This puppet module assumes the base image already has tools like unzip and awscli installed.
-Its assumed that splunk is also installed on the base image.
 
 ## Usage
 
@@ -49,7 +48,6 @@ Binary: `/usr/local/bin/*`
 Configuration: `/etc/consul/*`
 Data: `/var/consul/data`
 Log: `/var/log/consul/*`
-Splunk Configuration: `/var/splunkforwarder/etc/apps/consul/*`
 
 *Server Only:*
 

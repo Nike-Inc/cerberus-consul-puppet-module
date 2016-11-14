@@ -17,22 +17,6 @@ class consul::config inherits consul {
         require => Class['consul::install'],
     }
 
-    file { ['/opt/splunkforwarder/etc/apps/consul', '/opt/splunkforwarder/etc/apps/consul/local']:
-        ensure  => 'directory',
-        owner   => 'splunk',
-        group   => 'splunk',
-        mode    => '0755',
-        require => Class['consul::install'],
-    } ->
-    file { '/opt/splunkforwarder/etc/apps/consul/local/inputs.conf':
-        ensure  => file,
-        owner   => 'splunk',
-        group   => 'splunk',
-        mode    => '0644',
-        content => template("consul/inputs.conf.erb"),
-        require => Class['consul::install'],
-    }
-    
     file { '/etc/init/consul.conf':
         ensure  => file,
         owner   => 'root',

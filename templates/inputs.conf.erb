@@ -1,9 +1,0 @@
-# consul log
-[monitor://<%= @log_file %>]
-index=np-app
-sourcetype=consul_syslog
-
-# consul backup log
-[monitor://<%= @backup_log_file %>]
-index=np-app
-sourcetype=consul_backup_syslog
