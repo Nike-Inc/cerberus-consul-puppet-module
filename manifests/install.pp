@@ -60,7 +60,7 @@ class consul::install inherits consul {
     }
   
     exec { 'download consul':
-        command => "/usr/bin/wget  ${s3_binary_url} ${tmp_binary_zip}",
+        command => "/usr/bin/wget ${s3_binary_url} -O ${tmp_binary_zip}",
     }->
     exec { 'unzip consul':
         cwd     => $bin_dir,
@@ -79,7 +79,7 @@ class consul::install inherits consul {
         mode   => '0755',
     }->
     exec { 'download consul webui':
-        command => "/usr/bin/wget  ${s3_webui_url} ${tmp_webui_zip}",
+        command => "/usr/bin/wget  ${s3_webui_url} -O ${tmp_webui_zip}",
     }->
     exec { 'unzip consul webui':
         cwd     => $webui_dir,
