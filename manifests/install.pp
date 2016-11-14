@@ -1,8 +1,8 @@
 # == Class: consul::install
 # Installs consul and needed conf files
 class consul::install inherits consul {
-    $s3_binary_url = "${consul_dist_url}/${package_version}/${binary_zip_name}"
-    $s3_webui_url = "${consul_dist_url}/${package_version}/${webui_zip_name}"
+    $s3_binary_url = "${consul_dist_url}/${package_version}/consul_${package_version}_${binary_zip_name}"
+    $s3_webui_url = "${consul_dist_url}/${package_version}/consul_${package_version}_${webui_zip_name}"
     $tmp_binary_zip = "/tmp/consul.zip"
     $tmp_webui_zip = "/tmp/consul-webui.zip"
     
@@ -60,7 +60,7 @@ class consul::install inherits consul {
     }
   
     exec { 'download consul':
-        command => "/usr/local/bin/aws s3 cp ${s3_binary_url} ${tmp_binary_zip}",
+        command => "/usr/bin/wget  ${s3_binary_url} ${tmp_binary_zip}",
     }->
     exec { 'unzip consul':
         cwd     => $bin_dir,
@@ -79,7 +79,7 @@ class consul::install inherits consul {
         mode   => '0755',
     }->
     exec { 'download consul webui':
-        command => "/usr/local/bin/aws s3 cp ${s3_webui_url} ${tmp_webui_zip}",
+        command => "/usr/bin/wget  ${s3_webui_url} ${tmp_webui_zip}",
     }->
     exec { 'unzip consul webui':
         cwd     => $webui_dir,
