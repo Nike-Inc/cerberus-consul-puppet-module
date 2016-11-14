@@ -52,7 +52,7 @@ class consul::install inherits consul {
         group  => $consul_group,
         mode   => '0755',
     }->
-	file { $log_file:
+    file { $log_file:
         ensure => present,
         owner  => $consul_user,
         group  => $consul_group,
