@@ -16,10 +16,6 @@ pre-start script
     . /etc/default/ec2-user-data
     
     <%= @bin_dir %>/consul_dl_config
-end script
-
-script
-    . /etc/default/ec2-user-data
 
     URL="http://169.254.169.254/latest/"
     ID=$(curl -s $URL/meta-data/instance-id)
@@ -33,6 +29,10 @@ script
       echo "Not enough peers, expected $BOOTSTRAP_EXPECT nodes but got $SERVERS" >> <%= @log_file %>
       exit 1
     fi
+end script
+
+script
+    . /etc/default/ec2-user-data
 
     # Make sure to use all our CPUs, because Consul can block a scheduler thread
     export GOMAXPROCS=`nproc`
