@@ -29,6 +29,8 @@ pre-start script
       echo "Not enough peers, expected $BOOTSTRAP_EXPECT nodes but got $SERVERS" >> <%= @log_file %>
       exit 1
     fi
+
+    echo "Found $SERVERS which is > $BOOTSTRAP_EXPECT servers"
 end script
 
 script
@@ -49,6 +51,7 @@ script
         exit 1
     fi
 
+    echo "Executing the following command to start consule 'exec <%= @bin_dir %>/consul agent -dc ${CONSUL_DC} -config-file=<%= @config_dir %>/configuration.json $(echo "$SERVERS" | sed 's/^/ -retry-join /' | tr -d '\n') >><%= @log_file %>'"
     exec <%= @bin_dir %>/consul agent \
         -dc ${CONSUL_DC} \
         -config-file=<%= @config_dir %>/configuration.json \
