@@ -34,6 +34,12 @@ end script
 script
     . /etc/default/ec2-user-data
 
+    URL="http://169.254.169.254/latest/"
+    ID=$(curl -s $URL/meta-data/instance-id)
+    STACK_ID=$(aws --region ${EC2_REGION} ec2 describe-tags --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
+    SERVERS=$(aws --region ${EC2_REGION} ec2 describe-instances --filters "Name=tag:Name,Values=${CLOUD_ENVIRONMENT}" "Name=tag:aws:cloudformation:logical-id,Values=ConsulAutoScalingGroup" | jq -r '.Reservations[].Instances[].PrivateIpAddress')
+    BOOTSTRAP_EXPECT=$(cat <%= @config_dir %>/configuration.json | jq -r '.bootstrap_expect')
+
     # Make sure to use all our CPUs, because Consul can block a scheduler thread
     export GOMAXPROCS=`nproc`
     
