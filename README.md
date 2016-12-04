@@ -1,18 +1,18 @@
-# consul
+# Cerberus Consul Puppet Module
+
+This module installs Consul for the Cerberus project along and an upstart script. It is used
+in [creating a Cerberus environment](http://engineering.nike.com/cerberus/docs/administration-guide/creating-an-environment).
+
+To learn more about Cerberus, please visit the [Cerberus website](http://engineering.nike.com/cerberus/).
 
 #### Table of Contents
 
-1. [Overview](#overview)
-2. [Module Description - What the module does and why it is useful](#module-description)
-3. [Setup - The basics of getting started with consul](#setup)
+1. [Module Description - What the module does and why it is useful](#module-description)
+2. [Setup - The basics of getting started with consul](#setup)
     * [What consul affects](#what-consul-affects)
     * [Setup requirements](#setup-requirements)
-4. [Usage - Configuration options and additional functionality](#usage)
-5. [Installed Files - What gets installed](#installed-files)
-
-## Overview
-
-This module installs Consul for the Cerberus project along and an upstart script.
+3. [Usage - Configuration options and additional functionality](#usage)
+4. [Installed Files - What gets installed](#installed-files)
 
 ## Module Description
 
