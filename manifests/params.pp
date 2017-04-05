@@ -7,6 +7,8 @@ class consul::params {
     $consul_user = 'consul'
     $consul_group = 'consul'
 
+    $consul_limit_nofile = '999999'
+
     $bin_dir = '/usr/local/bin'
     $config_dir = '/etc/consul'
     $content_dir = '/var/consul'
