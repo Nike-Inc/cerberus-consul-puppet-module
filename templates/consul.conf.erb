@@ -132,7 +132,7 @@ post-start script
 
         # Don't bother with CF signals unless there is a create or update in progress
         STACK_STATUS=$(aws --region us-west-2 cloudformation describe-stacks --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --query 'Stacks[0].StackStatus')
-        if [[ $STACK_STATUS == *"IN_PROGRESS"* ]]
+        if [[ "$STACK_STATUS" == *"IN_PROGRESS"* ]]
         then
 
           # Get the ip address of self
