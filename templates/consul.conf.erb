@@ -132,7 +132,8 @@ post-start script
 
         # Don't bother with CF signals unless there is a create or update in progress
         STACK_STATUS=$(aws --region us-west-2 cloudformation describe-stacks --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --query 'Stacks[0].StackStatus')
-        if [[ "$STACK_STATUS" == *"IN_PROGRESS"* ]]
+        echo "Stack Status : ${STACK_STATUS}"
+        if [[ ${STACK_STATUS} =~ "IN_PROGRESS" ]]
         then
 
           # Get the ip address of self
@@ -140,7 +141,7 @@ post-start script
 
           HTTP_PORT=$(cat <%= @config_dir %>/configuration.json | jq -r '.ports.http')
 
-          # wait for self ip to show up in peers list
+          echo "wait for self ip to show up in peers list ${IP}"
           while ! curl -s http://localhost:${HTTP_PORT}/v1/status/peers | grep -q $IP:
           do
               echo Waiting for consul
@@ -149,6 +150,8 @@ post-start script
 
           # Single to AWS that we are up
           aws --region ${EC2_REGION} cloudformation signal-resource --logical-resource-id ConsulAutoScalingGroup --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --status SUCCESS --unique-id ${ID}
+        else
+	  echo "Not bothering with CF signals for status ${STACK_STATUS}"
         fi
     fi
 end script
