@@ -30,10 +30,10 @@ pre-start script
 
     STACK_ID=$(aws ec2 describe-tags --region ${EC2_REGION} --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
 
-    # Tags may not be available for use with newly launched instances. Eventhough its rare, it happens.
-    # We have seen it 1 out of 6 times. Make sure we got stack id.
+    # Tags may not be available for use with newly launched instances (rare but it happens, saw 1 out of 6 times).
+    # Make sure we have a stack id.
 
-    echo "Check and wait while we have STACK_ID from AWS instance tags"
+    echo "Check and wait until we have STACK_ID from AWS instance tags"
     while [ -z $STACK_ID ]; do
       echo -n "."
       sleep 1
@@ -69,10 +69,10 @@ script
 
     STACK_ID=$(aws ec2 describe-tags --region ${EC2_REGION} --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
 
-    # Tags may not be available for use with newly launched instances. Eventhough its rare, it happens.
-    # We have seen it 1 out of 6 times. Make sure we got stack id.
+    # Tags may not be available for use with newly launched instances (rare but it happens, saw 1 out of 6 times).
+    # Make sure we have a stack id.
 
-    echo "Check and wait while we have STACK_ID from AWS instance tags"
+    echo "Check and wait until we have STACK_ID from AWS instance tags"
     while [ -z $STACK_ID ]; do
       echo -n "."
       sleep 1
@@ -118,10 +118,10 @@ post-start script
 
         STACK_ID=$(aws ec2 describe-tags --region ${EC2_REGION} --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
 
-        # Tags may not be available for use with newly launched instances. Eventhough its rare, it happens.
-        # We have seen it 1 out of 6 times. Make sure we got stack id.
+        # Tags may not be available for use with newly launched instances (rare but it happens, saw 1 out of 6 times).
+        # Make sure we have a stack id.
 
-        echo "Check and wait while we have STACK_ID from AWS instance tags"
+        echo "Check and wait until we have STACK_ID from AWS instance tags"
         while [ -z $STACK_ID ]; do
           echo -n "."
           sleep 1
@@ -130,19 +130,76 @@ post-start script
         echo '*'
         echo "Stack ID : ${STACK_ID}"
 
-        # Get the ip address of self
-        IP=$(ip addr show dev eth0|awk '/inet /{print $2}'|cut -d/ -f1)
+        # Don't bother with CF signals unless there is a create or update in progress
+        STACK_STATUS=$(aws --region us-west-2 cloudformation describe-stacks --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --query 'Stacks[0].StackStatus')
+        echo "Stack Status : ${STACK_STATUS}"
 
-        HTTP_PORT=$(cat <%= @config_dir %>/configuration.json | jq -r '.ports.http')
+        case "$STACK_STATUS" in
+          *"IN_PROGRESS"*)
+            # Get the ip address of self
+            IP=$(ip addr show dev eth0|awk '/inet /{print $2}'|cut -d/ -f1)
 
-        # wait for self ip to show up in peers list
-        while ! curl -s http://localhost:${HTTP_PORT}/v1/status/peers | grep -q $IP:
-        do
-            echo Waiting for consul
-            sleep 1
+            HTTP_PORT=$(cat <%= @config_dir %>/configuration.json | jq -r '.ports.http')
+
+            echo "Waiting for self IP to show up in peers list ${IP}"
+            PEERS_URL="http://localhost:${HTTP_PORT}/v1/status/peers"
+            while ! curl -s PEERS_URL | grep -q $IP:
+            do
+                echo "Waiting for consul checking ${PEERS_URL} for ${IP}"
+                sleep 1
+            done
+
+            echo "Sending signal to CloudFormation that we are up"
+            aws --region ${EC2_REGION} cloudformation signal-resource --logical-resource-id ConsulAutoScalingGroup --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --status SUCCESS --unique-id ${ID}
+
+            ;;
+          *)
+            echo "Not bothering with CF signals for status ${STACK_STATUS}"
+            ;;
+        esac
+    fi
+end script
+
+pre-stop script
+    IS_SERVER=$(cat <%= @config_dir %>/configuration.json | jq -r '.server')
+    if [ "${IS_SERVER}" = "true" ]
+    then
+        . /etc/default/ec2-user-data
+
+        URL="http://169.254.169.254/latest/"
+        ID=$(curl -s $URL/meta-data/instance-id)
+        echo "Instance ID : ${ID}"
+
+        EC2_AVAIL_ZONE=`curl -s $URL/meta-data/placement/availability-zone`
+        EC2_REGION="`echo \"$EC2_AVAIL_ZONE\" | sed -e 's:\([0-9][0-9]*\)[a-z]*\$:\\1:'`"
+        echo "EC2_AVAIL_ZONE : ${EC2_AVAIL_ZONE}"
+        echo "EC2_REGION : ${EC2_REGION}"
+
+        STACK_ID=$(aws ec2 describe-tags --region ${EC2_REGION} --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
+
+        # Tags may not be available for use with newly launched instances (rare but it happens, saw 1 out of 6 times).
+        # Make sure we have a stack id.
+
+        echo "Check and wait until we have STACK_ID from AWS instance tags"
+        while [ -z $STACK_ID ]; do
+          echo -n "."
+          sleep 1
+          STACK_ID=$(aws ec2 describe-tags --region ${EC2_REGION} --filter Name=resource-id,Values=${ID} | jq -r .Tags | jq '.[] | select(.Key=="aws:cloudformation:stack-id")' | jq ".Value")
         done
+        echo '*'
+        echo "Stack ID : ${STACK_ID}"
 
-        # Single to AWS that we are up
-        aws --region ${EC2_REGION} cloudformation signal-resource --logical-resource-id ConsulAutoScalingGroup --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --status SUCCESS --unique-id ${ID}
+        STACK_STATUS=$(aws --region us-west-2 cloudformation describe-stacks --stack-name $(echo "$STACK_ID" | sed -e 's/^"//' -e 's/"$//') --query 'Stacks[0].StackStatus')
+        echo "Stack Status : ${STACK_STATUS}"
+        case "$STACK_STATUS" in
+          *"IN_PROGRESS"*)
+            # Leave Cluster if we are in the middle of a CF update
+            echo "Leaving Consul cluster"
+            consul leave
+            ;;
+          *)
+            echo "Not leaving Consul cluster (exact leave behavior depends on Consul agent version and configuration)"
+            ;;
+        esac
     fi
 end script
