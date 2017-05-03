@@ -143,7 +143,7 @@ post-start script
 
             echo "Waiting for self IP to show up in peers list ${IP}"
             PEERS_URL="http://localhost:${HTTP_PORT}/v1/status/peers"
-            while ! curl -s PEERS_URL | grep -q $IP:
+            while ! curl -s ${PEERS_URL} | grep -q ${IP}:
             do
                 echo "Waiting for consul checking ${PEERS_URL} for ${IP}"
                 sleep 1
