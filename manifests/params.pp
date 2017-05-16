@@ -1,6 +1,6 @@
 class consul::params {
     $consul_dist_url = 'https://releases.hashicorp.com/consul'
-    $package_version = '0.7.5'
+    $package_version = '0.8.3'
     $binary_zip_name = 'linux_amd64.zip'
     $webui_zip_name = 'web_ui.zip'
 
