@@ -2,10 +2,8 @@
 # Installs consul and needed conf files
 class consul::install inherits consul {
     $s3_binary_url = "${consul_dist_url}/${package_version}/consul_${package_version}_${binary_zip_name}"
-    $s3_webui_url = "${consul_dist_url}/${package_version}/consul_${package_version}_${webui_zip_name}"
     $tmp_binary_zip = "/tmp/consul.zip"
-    $tmp_webui_zip = "/tmp/consul-webui.zip"
-    
+
     package { 'ensure-jq-installed':
         name    => 'jq',
         ensure  => installed,
@@ -69,25 +67,6 @@ class consul::install inherits consul {
         creates => "${bin_dir}/consul", # Don't run if file already exists.
     }->
     file { $tmp_binary_zip:
-        ensure => absent,
-    }
-
-    file { $webui_dir:
-        ensure => 'directory',
-        owner  => $consul_user,
-        group  => $consul_group,
-        mode   => '0755',
-    }->
-    exec { 'download consul webui':
-        command => "/usr/bin/wget  ${s3_webui_url} -O ${tmp_webui_zip}",
-    }->
-    exec { 'unzip consul webui':
-        cwd     => $webui_dir,
-        command => "/usr/bin/unzip ${tmp_webui_zip} -d ${webui_dir}",
-        returns => [0, 9],
-        creates => $webui_dist_dir, # Don't run if directory already exists.
-    }->
-    file { $tmp_webui_zip:
         ensure => absent,
     }
 
